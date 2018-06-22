@@ -1,0 +1,120 @@
+version: '3'
+
+services:
+
+  flexbi_backend:
+    image: daocloud.io/visionpsn/flexbi-backend
+    depends_on:
+      - flexbi_postgres
+    container_name: flexbi_backend
+    command: server
+    volumes:
+      - ../local_data/logs:/var/logs
+    environment:
+      - ENV=production
+      - VIRTUAL_HOST=*.api.flexceed.top
+      - DB_ENV_POSTGRES_USER=app
+      - DB_ENV_POSTGRES_PASSWORD=123456
+      - DB_ENV_POSTGRES_HOST=flexbi_postgres
+      - DB_ENV_POSTGRES_PORT=5432
+      - DB_ENV_POSTGRES_DBNAME=flexbi
+      - DB_ENV_POSTGRES_DBNAME_TEST=flexbitest
+      - MAIL_SERVER=cloud.mysubmail.com
+      - MAIL_PORT=25
+      - MAIL_USERNAME=11775
+      - MAIL_PASSWORD=f2530563c2289d9c6163a5a123ab6d7e
+      - MAIL_DEFAULT_SENDER=noreply@yuelemon.com
+      - SECRET_KEY=DGMW6pU8x01-mh519JkLsbHOiXZLp4fpUVdHqi58
+      - SERVER_NAME=api.flexceed.top
+      - AES256_KEY=7B71DF3585CA169484A4B573C9F67B8B
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    networks:
+      - flexbi_backend
+
+  flexbi_postgres:
+    image: postgres:9.6.2
+    container_name: flexbi_postgres
+    volumes:
+      - ../db:/var/lib/postgres/data/pgdata
+      - ./docker-postgresql-multiple-databases:/docker-entrypoint-initdb.d
+    environment:
+      - PGDATA=/var/lib/postgres/data/pgdata
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_MULTIPLE_DATABASES=flexbi,flexbitest
+    networks:
+      - flexbi_backend
+
+  flexbi_nginx_proxy:
+    image: jwilder/nginx-proxy
+    container_name: flexbi_nginx_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/my_proxy.conf:ro
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./local_data/certs:/etc/nginx/certs:ro
+    networks:
+      - flexbi_backend
+
+  elephantbi_channel:
+    image: channel:latest
+    container_name: elephantbi_channel_dev
+    command: channel
+    ports:
+      - "8888:8888"
+    networks:
+      - flexbi_backend_dev
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_DB=0
+      - REDIS_PORT=6379
+      - HOST_NAME=elephantbi_channel:8888
+
+  redis:
+    image: redis:4.0
+    volumes:
+      - ../config/deploy/redis.conf:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - flexbi_backend_dev
+
+  flexbi_woker:
+    build:
+      context: ..
+      dockerfile: Dockerfile-dev
+    depends_on:
+      - postgres
+    container_name: flexbi_worker_dev
+    command: worker
+    volumes:
+      - ..:/home/docker/code
+      - ../local_data/logs:/var/logs
+    environment:
+      - ENV=develop
+      - DB_ENV_POSTGRES_USER=chenjun
+      - DB_ENV_POSTGRES_PASSWORD=123456
+      - DB_ENV_POSTGRES_HOST=postgres
+      - DB_ENV_POSTGRES_PORT=5432
+      - DB_ENV_POSTGRES_DBNAME=flexbi
+      - DB_ENV_POSTGRES_DBNAME_TEST=flexbitest
+      - MAIL_SERVER=cloud.mysubmail.com
+      - MAIL_PORT=25
+      - MAIL_USERNAME=11775
+      - MAIL_PASSWORD=f2530563c2289d9c6163a5a123ab6d7e
+      - MAIL_DEFAULT_SENDER=noreply@yuelemon.com
+      - SECRET_KEY=DGMW6pU8x01-mh519JkLsbHOiXZLp4fpUVdHqi58
+      - SERVER_NAME=flexceed.com:5000
+      - AES256_KEY=7B71DF3585CA169484A4B573C9F67B8B
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    networks:
+      - flexbi_backend_dev
+
+networks:
+  flexbi_backend:
