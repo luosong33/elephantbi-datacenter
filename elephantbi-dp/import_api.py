@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from flask import Flask,request
 from flask_restful import Api
 import uuid
@@ -8,9 +9,7 @@ from happy_hbaseutil import createHbaseTable
 from phoenixdb_util import create_phoenix_table, insert_metadata, insert_phoenix
 from sqoop_util import sqoop2hbase
 from celery import Celery
-from hdf5_util import readH5_datas, redaH5_clumns, readH5_phoenix_datas
-from happy_hbaseutil import insertHbase
-# from tasks_ import file2hbase_task
+from hdf5_util import redaH5_clumns, readH5_phoenix_datas
 
 
 app = Flask(__name__)
@@ -57,8 +56,6 @@ def file2hbase():
     table_name = j_data["table_name"]
 
     r = file2hbase_task.delay(str(filePath), str(table_name), str(uuid_))
-    # file2hbase_task(filePath, table_name, uuid_)
-    # print('状态：：：' + r.status())
     return str(uuid_)
 
 
@@ -69,24 +66,20 @@ def data_processing():
     data_dict = json.loads(data_job)
     data_str = json.dumps(data_dict)
     r = data_join_task.delay(data_str, str(uuid_))
-    # data_join_task(data_str, str(uuid_))
     return str(uuid_)
 
 
 # 异步任务
 @celery.task()
 def mysql2hbase_task(uuid_, host_, port, user, pass_, db_name, table_name, rowkey):
-    #  创建hbase表
+    # 创建hbase表
     createHbaseTable(str(uuid_))
-    #  sqoop导入hbase
+    # sqoop导入hbase
     sqoop2hbase(str(uuid_), host_, port, user, pass_, db_name, table_name, rowkey)
 
 
 @celery.task()
 def file2hbase_task(filePath, table_name, uuid_):
-
-    #  创建hbase表
-    # createHbaseTable(str(uuid_))
 
     #  创建phoenix表
     clumns_str = redaH5_clumns(filePath, table_name)
@@ -94,21 +87,14 @@ def file2hbase_task(filePath, table_name, uuid_):
     #  记录表元数据
     insert_metadata(str(uuid_), create_table_sql, clumns_str)
 
-    #  读取文件封装数据 hbase
-    # datas = readH5_datas(filePath, table_name)
     #  读取文件封装数据 phoenix
     datas = readH5_phoenix_datas(filePath, table_name)
-    #  数据导入hbase
-    # insertHbase(uuid_, datas)
     #  数据导入phoenix
     insert_phoenix(str(uuid_), clumns_str, datas)
 
 
 @celery.task()
 def data_join_task(data_str, uuid_):
-
-    #  创建hbase表
-    # createHbaseTable(str(uuid_))
 
     #  数据加工
     data_job = json.loads(data_str)
@@ -122,7 +108,7 @@ def data_join_task(data_str, uuid_):
             join_type = m["join_type"]
             join_conf = m["join_conf"]
             conf0 = join_conf[0]
-            table_id0 = ""
+            # table_id0 = ""
             join_on0 = ""
             if tmptable == "":
                 table_id0 = conf0["table_id"]
@@ -134,9 +120,9 @@ def data_join_task(data_str, uuid_):
                     join_on0 = conf0["join_on"]
                 elif samename == "1": # 结果表有重名，根据标识取
                     if table_clu_flag == "0":
-                        join_on0 = conf0["join_on"] + "_0"
+                        join_on0 = '{0}{1}'.format(conf0["join_on"], "_0")
                     elif table_clu_flag == "1":
-                        join_on0 = conf0["join_on"] + "_1"
+                        join_on0 = '{0}{1}'.format(conf0["join_on"], "_1")
 
             conf1 = join_conf[1]
             table_id1 = conf1["table_id"]

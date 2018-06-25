@@ -45,11 +45,5 @@ if __name__ == "__main__":
     csv = pd.read_csv("/home/luosong/桌面/table2.csv")
     write_h5("/home/luosong/桌面/table2.h5","table2",csv)
 
-    datas = readH5_datas("/home/luosong/桌面/table2.h5", "table2") # /home/luosong/Downlod/out.h5
+    datas = readH5_datas("/home/luosong/桌面/table2.h5", "table2")
     print(datas)
-
-    # datas = readH5_phoenix_datas("/home/luosong/桌面/table4.h5", "table4") # /home/luosong/Downlod/out.h5
-    # print(datas)
-
-    # clumns = redaH5_clumns("/home/luosong/Downlod/out.h5", "订单")
-    # print(clumns)
