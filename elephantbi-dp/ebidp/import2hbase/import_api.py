@@ -1,39 +1,28 @@
 #!/usr/bin/python
-from flask import Flask,request
+from flask import request, Blueprint
 from flask_restful import Api
 import uuid
 import json
 
-from data_proc import data_join_clu, data_join_row
-from happy_hbaseutil import createHbaseTable
-from phoenixdb_util import create_phoenix_table, insert_metadata, insert_phoenix
-from sqoop_util import sqoop2hbase
-from celery import Celery
-from hdf5_util import redaH5_clumns, readH5_phoenix_datas
+from ebidp.import2hbase.data_proc import data_join_clu
+from ebidp.import2hbase.happy_hbaseutil import createHbaseTable
+from ebidp.import2hbase.phoenixdb_util import create_phoenix_table, insert_metadata, insert_phoenix
+from ebidp.import2hbase.sqoop_util import sqoop2hbase
+from ebidp.import2hbase.hdf5_util import redaH5_clumns, readH5_phoenix_datas
+
+bp = Blueprint(__name__)
+api = Api(bp)
 
 
-app = Flask(__name__)
-api = Api(app)
-
-# Celery configuration
-app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-
-# Initialize Celery
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
-
-
-@app.route('/test', methods=['GET'])
+@bp.route('/test', methods=['GET'])
 def test():
     return "OK"
 
-@app.route('/mysql2hbase', methods=['POST'])
+@bp.route('/mysql2hbase', methods=['POST'])
 # def post():
 def mysql2hbase():
     uuid_ = uuid.uuid1()
     data = request.data
-    print(data)
     j_data = json.loads(data)
     host_ = j_data["host"]
     port = j_data["port"]
@@ -41,13 +30,14 @@ def mysql2hbase():
     pass_ = j_data["pass_"]
     db_name = j_data["db_name"]
     table_name = j_data["table_name"]
-    rowkey = j_data["key"]
+    key = j_data["key"]
 
-    r = mysql2hbase_task.delay(str(uuid_), host_, port, user, pass_, db_name, table_name, rowkey)
+    # r = mysql2hbase_task.delay(str(uuid_), host_, port, user, pass_, db_name, table_name, rowkey)
+    mysql2hbase_task(str(uuid_), host_, port, user, pass_, db_name, table_name, key)
     return str(uuid_)
 
 
-@app.route('/file2hbase', methods=['POST'])
+@bp.route('/file2hbase', methods=['POST'])
 def file2hbase():
     uuid_ = uuid.uuid1()
     data = request.data
@@ -59,7 +49,7 @@ def file2hbase():
     return str(uuid_)
 
 
-@app.route('/data_processing', methods=['POST'])
+@bp.route('/data_processing', methods=['POST'])
 def data_processing():
     uuid_ = uuid.uuid1()
     data_job = request.data
@@ -137,9 +127,6 @@ def data_join_task(data_str, uuid_):
                 tn_sn_list = tmptable_and_samename.split("^")
                 tmptable = tn_sn_list[0]
                 samename = tn_sn_list[1]
-    else:
-        data_join_row()
-
 
 
 if __name__ == '__main__':

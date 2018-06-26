@@ -85,20 +85,3 @@ def query_dpdata(query_sql):
     conn.close()
 
     return fetchall
-
-
-def query_test():
-    database_url = 'http://localhost:8765/'
-    conn = phoenixdb.connect(database_url, autocommit=True)
-
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE \"users\" (\"id\" INTEGER PRIMARY KEY, \"username\" VARCHAR)")
-    cursor.execute("UPSERT INTO \"manager\" VALUES (?, ?)",  ('2', '北上广深'))
-    cursor.execute("SELECT * FROM \"meta_table\"")
-    print("end:::")
-    return
-
-
-
-if __name__ == '__main__':
-    query_test()

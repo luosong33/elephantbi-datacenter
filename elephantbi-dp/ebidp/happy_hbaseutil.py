@@ -1,9 +1,27 @@
 #!/usr/bin/python
 import happybase
 
+
+from flask import current_app
+
+
 def createHbaseTable(name):
-    connection = happybase.Connection(host="localhost", port=9090, timeout=None, autoconnect=True, table_prefix=None, #table_prefix_separator=b'_',
-                                      compat='0.98', transport='buffered', protocol='binary')
+    HBASE_HOST = current_app.config['HBASE_HOST']
+    HBASE_PORT = current_app.config['HBASE_PORT']
+    TIMEOUT = current_app.config['TIMEOUT']
+    AUTOCONNECT = current_app.config['AUTOCONNECT']
+    TABLE_PREFIX = current_app.config['TABLE_PREFIX']
+    COMPAT = current_app.config['COMPAT']
+    TRANSPORT = current_app.config['TRANSPORT']
+    PROTOCOL = current_app.config['PROTOCOL']
+    connection = happybase.Connection(host=HBASE_HOST,
+                                      port=HBASE_PORT,
+                                      timeout=TIMEOUT,
+                                      autoconnect=AUTOCONNECT,
+                                      table_prefix=TABLE_PREFIX,
+                                      compat=COMPAT,
+                                      transport=TRANSPORT,
+                                      protocol=PROTOCOL)
     connection.open()
     families = {
         "c": dict()
@@ -34,13 +52,5 @@ def insertHbase(tableName, datas):
 
     connection.close()
 
-
-
-if __name__ == "__main__":
-    connection = happybase.Connection(host="localhost", port=9090, timeout=None, autoconnect=True, table_prefix=None,
-                                      compat='0.98', transport='buffered', protocol='binary')
-    connection.open()
-    table = connection.table(str("f77ba62c-738e-11e8-ae56-30b49e461e49"))
-    table.put('1333333', {"c:addr": '拉斯凯的军阀孙'})
-    connection.close()
-
+if __name__ == '__main__':
+    createHbaseTable("test_config")
