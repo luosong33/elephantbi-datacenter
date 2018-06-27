@@ -1,19 +1,20 @@
 #!/usr/bin/python
 import uuid
 import phoenixdb.cursor
-
-from ebidp.import2hbase.phoenixdb_util import (
+from flask import current_app
+from ebidp.phoenixdb_util import (
     query_metadata, create_phoenix_table, insert_metadata
 )
+from ebidp.sql_config import join_query_sql
 
 
-def data_join_clu(table0, table1, join_clumn0, join_clumn1, join_type, uuid_):
+def data_join_clu(table0, table1, join_column0, join_column1, join_type, _uuid):
 
-    if uuid_ is None:
+    if _uuid is None:
         tmp_uuid = uuid.uuid1()
     else:
-        tmp_uuid = uuid_
-    database_url = 'http://localhost:8765/'
+        tmp_uuid = _uuid
+    database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
 
     # 封装join后表结构并建表
@@ -21,7 +22,7 @@ def data_join_clu(table0, table1, join_clumn0, join_clumn1, join_type, uuid_):
     table0_columns = table0_metadata[2]
     table1_metadata = query_metadata("meta_table", "id", table1)
     table1_columns = table1_metadata[2]
-    columns_str = '{0}{1}{2}'.format(table0_columns, "^", table1_columns)
+    columns_str = '{0}^{1}'.format(table0_columns, table1_columns)
     # 处理重名字段
     same_name_flag = ""  # 是否重名标识 0不重 1重名
     columns_list = columns_str.split("^")
@@ -33,12 +34,13 @@ def data_join_clu(table0, table1, join_clumn0, join_clumn1, join_type, uuid_):
             for i in range(count):
                 new_list = columns_list[first_pos:]  # 最新一次出现往后的剩余数据集
                 next_pos = new_list.index(clu) + 1  # 剩余数据集中出现的角标
-                columns_list[first_pos + new_list.index(clu)] = '{0}{1}{2}'.format(clu, "_", str(i))  # 将其添加后缀
+                columns_list[first_pos + new_list.index(clu)] = '{0}_{1}'\
+                    .format(clu, str(i))  # 将其添加后缀
                 first_pos += next_pos  # 更新角标
         else:
             same_name_flag = "0"
     columns_str = "^".join(columns_list)
-    columns_str_meta = '{0}{1}'.format("ROW^", columns_str)
+    columns_str_meta = 'ROW^{0}'.format(columns_str)
 
     create_table_sql = create_phoenix_table(str(tmp_uuid), columns_str_meta)
     insert_metadata(str(tmp_uuid), create_table_sql, columns_str)
@@ -54,19 +56,19 @@ def data_join_clu(table0, table1, join_clumn0, join_clumn1, join_type, uuid_):
         join_str = "inner join"
     elif join_type == "full":
         join_str = "full join"
-    query_sql = "select * from \""+table0+"\" o "+join_str+" \""+table1+"\" t on o.\""+join_clumn0+"\" = t.\""+join_clumn1+"\""
+    query_sql = join_query_sql % (table0, join_str, table1,
+                                      join_column0, join_column1)
     cursor.execute(query_sql)
     fetchall = cursor.fetchall()
 
     # 插入
-    sql = "UPSERT INTO \"" + str(tmp_uuid) + "\" VALUES (?"
-    # for clu in fetchone:
+    sql = 'UPSERT INTO "{0}" VALUES (?'.format(str(tmp_uuid))
     size = len(columns_str_meta.split("^"))
     for i in range(size - 1):
-        sql = '{0}{1}'.format(sql, ", ?")
-    sql = '{0}{1}'.format(sql, ")")
+        sql = '{0}, ?'.format(sql)
+    sql = '{0})'.format(sql)
     for fetchone in fetchall:
         fetchone.insert(0, str(uuid.uuid1()))
         cursor.execute(sql, fetchone)
 
-    return '{0}{1}{2}'.format(str(tmp_uuid), "^", same_name_flag)
+    return '{0}^{1}'.format(str(tmp_uuid), same_name_flag)
