@@ -50,12 +50,12 @@ def insert_hbase(table_name, data_list):
     for line_dict in data_list:
         for key, _dict in line_dict.items():
             data_clu = {}
-            for k,v in _dict.items():
-                data_clu.setdefault('c:{0}{1}'.format(str(k)), str(v))
+            for k, v in _dict.items():
+                data_clu.setdefault('c:{0}{1}'.format(str(k), str(v)))
 
             try:
                 table.put(str(key), data_clu)
                 raise ValueError("Something went wrong!")
             except ValueError as e:
-                pass
+                print(e)
     connection.close()

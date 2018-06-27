@@ -1,24 +1,26 @@
 #!/usr/bin/python
-from flask import request, Blueprint, current_app
+from flask import request, Blueprint
 from flask_restful import Api, Resource
-import uuid
+from uuid import uuid1
 import json
 
-from ebidp.tasks_ import mysql2hbase_task, file2hbase_task, data_join_task
+from ebidp.asyn_tasks import (
+    mysql_to_hbase_task, file_to_hbase_task, data_join_task
+)
 
 bp = Blueprint('simple_page', __name__, template_folder='templates')
 api = Api(bp)
 
 
-class test(Resource):
+class Test(Resource):
     def get(self):
         return "OK"
 
 
-class mysql2hbase(Resource):
+class MysqlToHbase(Resource):
     def post(self):
         data = request.data
-        uuid_ = uuid.uuid1()
+        table_uuid = uuid1().hex
         j_data = json.loads(data)
         host_ = j_data["host"]
         port = j_data["port"]
@@ -30,36 +32,36 @@ class mysql2hbase(Resource):
 
         # r = mysql2hbase_task.delay(str(uuid_), host_, port, user,
         #                            pass_, db_name, table_name, key)
-        mysql2hbase_task(str(uuid_), host_, port, user, pass_, db_name,
-                         table_name, key)
-        return str(uuid_)
+        mysql_to_hbase_task(table_uuid, host_, port, user, pass_, db_name,
+                            table_name, key)
+        return table_uuid
 
 
-class file2hbase(Resource):
+class FileToHbase(Resource):
     def post(self):
         data = request.data
-        uuid_ = uuid.uuid1()
+        table_uuid = uuid1().hex
         j_data = json.loads(data)
-        filePath = j_data["filePath"]
+        file_path = j_data["filePath"]
         table_name = j_data["table_name"]
 
         # r = file2hbase_task.delay(str(filePath), str(table_name), str(uuid_))
-        file2hbase_task(str(filePath), str(table_name), str(uuid_))
-        return str(uuid_)
+        file_to_hbase_task(str(file_path), str(table_name), table_uuid)
+        return str(table_uuid)
 
 
-class data_processing(Resource):
+class DataProcessing(Resource):
     def post(self):
         data_job = request.data
-        uuid_ = uuid.uuid1()
         data_dict = json.loads(data_job)
         data_str = json.dumps(data_dict)
+        table_uuid = uuid1().hex
         # r = data_join_task.delay(data_str, str(uuid_))
-        data_join_task(data_str, str(uuid_))
-        return str(uuid_)
+        data_join_task(data_str, table_uuid)
+        return table_uuid
 
 
-api.add_resource(test, '/test')
-api.add_resource(mysql2hbase, '/mysql2hbase')
-api.add_resource(file2hbase, '/file2hbase')
-api.add_resource(data_processing, '/data_processing')
+api.add_resource(Test, '/test')
+api.add_resource(MysqlToHbase, '/mysql2hbase')
+api.add_resource(FileToHbase, '/file2hbase')
+api.add_resource(DataProcessing, '/data_processing')

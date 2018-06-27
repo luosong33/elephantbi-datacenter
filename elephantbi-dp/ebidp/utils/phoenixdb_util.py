@@ -3,25 +3,27 @@ import phoenixdb
 import phoenixdb.cursor
 import datetime
 from flask import current_app
-from ebidp.sql_config import insert_meta_sql, query_meta_sql
+from ebidp.sql_config import insert_meta_sql, query_meta_sql, \
+    create_phoenix_prefix, create_phoenix_key, \
+    create_phoenix_column, create_phoenix_suffix, \
+    insert_phoenix_prefix, insert_phoenix_column, insert_phoenix_suffix
 
 
 # phoenix建表
-def create_phoenix_table(_uuid, columns_str):
+def create_phoenix_table(table_uuid, columns_str):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
     cursor = conn.cursor()
 
-    create_table_sql='CREATE TABLE "{0}" ( '.format(str(_uuid))
+    create_table_sql = create_phoenix_prefix % table_uuid
     columns_list = columns_str.split("^")
-    id = columns_list[0]
-    create_table_sql = '{0}"{1}" VARCHAR PRIMARY KEY, '\
-        .format(create_table_sql, id)
+    table_id = columns_list[0]
+    create_table_sql = create_phoenix_key % (create_table_sql, table_id)
     del columns_list[0]
     for clu in columns_list:
-        create_table_sql = '{0}"{1}" VARCHAR, '.format(create_table_sql, clu)
+        create_table_sql = create_phoenix_column % (create_table_sql, clu)
     create_table_sql = create_table_sql[:-2]  # 去掉最后一个逗号
-    create_table_sql = '{0})'.format(create_table_sql)
+    create_table_sql = create_phoenix_suffix % create_table_sql
 
     cursor.execute(create_table_sql)
     conn.close()
@@ -34,18 +36,17 @@ def insert_phoenix(table_name, columns_str, data_list):
     conn = phoenixdb.connect(database_url, autocommit=True)
     cursor = conn.cursor()
 
-    clumns_list = columns_str.split("^")
-    insert_sql = 'UPSERT INTO "{0}" VALUES (?'.format(table_name)
-    for i in range(len(clumns_list) - 1):
-        insert_sql = '{0}, ?'.format(insert_sql)
-    insert_sql = '{0})'.format(insert_sql)
+    columns_list = columns_str.split("^")
+    insert_sql = insert_phoenix_prefix % table_name
+    for i in range(len(columns_list) - 1):
+        insert_sql = insert_phoenix_column % insert_sql
+    insert_sql = insert_phoenix_suffix % insert_sql
 
-    for colu in data_list:
+    for clu in data_list:
         try:
-            cursor.execute(insert_sql,colu)
-            raise ValueError("Something went wrong!")
+            cursor.execute(insert_sql, clu)
         except ValueError as e:
-            pass
+            print(e)
 
     conn.close()
 
@@ -66,11 +67,11 @@ def insert_metadata(uuid_, create_table_sql, columns):
 def query_metadata(table_name, column, value):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
-    cursor = conn.cursor()
 
-    query_sql = query_meta_sql % (table_name, column, value)
-    cursor.execute(query_sql)
-    fetchone = cursor.fetchone()
+    with conn.cursor() as cursor:
+        query_sql = query_meta_sql % (table_name, column, value)
+        cursor.execute(query_sql)
+        fetchone = cursor.fetchone()
     conn.close()
 
     return fetchone
@@ -80,10 +81,9 @@ def query_metadata(table_name, column, value):
 def query_dp_data(query_sql):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
-    cursor = conn.cursor()
-
-    cursor.execute(query_sql)
-    fetchall = cursor.fetchall()
+    with conn.cursor() as cursor:
+        cursor.execute(query_sql)
+        fetchall = cursor.fetchall()
     conn.close()
 
     return fetchall
