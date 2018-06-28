@@ -3,7 +3,8 @@ from uuid import uuid1
 import phoenixdb.cursor
 from flask import current_app
 from ebidp.utils.phoenixdb_util import (
-    query_metadata, create_phoenix_table, insert_metadata
+    query_metadata, create_phoenix_table, insert_metadata,
+    generate_phoenix_table
 )
 from ebidp.sql_config import (
     join_query_sql, data_phoenix_prefix,
@@ -15,21 +16,19 @@ def data_join_clu(table0, table1, join_column0, join_column1,
                   join_type, table_uuid):
 
     if table_uuid is None:
-        tmp_uuid = uuid1()
+        tmp_uuid = uuid1().hex
     else:
         tmp_uuid = table_uuid
-    database_url = current_app.config['DATABASE_URL']
-    conn = phoenixdb.connect(database_url, autocommit=True)
 
     # 封装join后表结构并建表
     table0_metadata = query_metadata("meta_table", "id", table0)
-    table0_columns = table0_metadata[2]
+    table0_columns = table0_metadata[4]
     table1_metadata = query_metadata("meta_table", "id", table1)
-    table1_columns = table1_metadata[2]
-    columns_str = '{0}^{1}'.format(table0_columns, table1_columns)
+    table1_columns = table1_metadata[4]
+    original_columns_str = '{0}^{1}'.format(table0_columns, table1_columns)
     # 处理重名字段
-    same_name_flag = ""  # 是否重名标识 0不重 1重名
-    columns_list = columns_str.split("^")
+    same_name_flag = ""  # 上次join有是否有重名的标识 0不重 1重名
+    columns_list = original_columns_str.split("^")
     for clu in set(columns_list):
         count = columns_list.count(clu)
         if count >= 2:
@@ -43,36 +42,45 @@ def data_join_clu(table0, table1, join_column0, join_column1,
                 first_pos += next_pos  # 更新角标
         else:
             same_name_flag = "0"
-    columns_str = "^".join(columns_list)
-    columns_str_meta = 'ROW^{0}'.format(columns_str)
+    final_columns_str = "^".join(columns_list)
+    columns_str_meta = 'ROW^{0}'.format(final_columns_str)
 
-    create_table_sql = create_phoenix_table(tmp_uuid, columns_str_meta)
-    insert_metadata(tmp_uuid, create_table_sql, columns_str)
+    final_create_table_sql = generate_phoenix_table(tmp_uuid, columns_str_meta)
+    create_phoenix_table(final_create_table_sql)
+    original_create_table_sql = generate_phoenix_table(tmp_uuid,
+                                                       original_columns_str)
+    insert_metadata(tmp_uuid, final_create_table_sql, final_columns_str,
+                    original_create_table_sql, original_columns_str)
 
     # 查询join数据并插入
-    cursor = conn.cursor()
-    join_str = ""
-    if join_type == "left":
-        join_str = "left join"
-    elif join_type == "right":
-        join_str = "right join"
-    elif join_type == "inner":
-        join_str = "inner join"
-    elif join_type == "full":
-        join_str = "full join"
-    query_sql = join_query_sql % (table0, join_str, table1,
-                                  join_column0, join_column1)
-    cursor.execute(query_sql)
-    fetchall = cursor.fetchall()
+    database_url = current_app.config['DATABASE_URL']
+    conn = phoenixdb.connect(database_url, autocommit=True)
+    with conn.cursor() as cursor:
+        join_str = ""
+        if join_type == "left":
+            join_str = "left join"
+        elif join_type == "right":
+            join_str = "right join"
+        elif join_type == "inner":
+            join_str = "inner join"
+        elif join_type == "full":
+            join_str = "full join"
+        query_sql = join_query_sql % (table0, join_str, table1,
+                                      join_column0, join_column1)
+        cursor.execute(query_sql)
+        fetchall = cursor.fetchall()
 
     # 插入
-    sql = data_phoenix_prefix % tmp_uuid
-    size = len(columns_str_meta.split("^"))
-    for i in range(size - 1):
-        sql = data_phoenix_column % sql
-    sql = data_phoenix_suffix % sql
-    for fetchone in fetchall:
-        fetchone.insert(0, uuid1().hex)
-        cursor.execute(sql, fetchone)
+    with conn.cursor() as cursor:
+        sql = data_phoenix_prefix % tmp_uuid
+        size = len(columns_str_meta.split("^"))
+        for i in range(size - 1):
+            sql = data_phoenix_column % sql
+        sql = data_phoenix_suffix % sql
+        for fetchone in fetchall:
+            fetchone.insert(0, uuid1().hex)
+            cursor.execute(sql, fetchone)
+
+    conn.close()
 
     return '{0}^{1}'.format(tmp_uuid, same_name_flag)

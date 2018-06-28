@@ -1,7 +1,8 @@
 import json
 from ebidp.utils.happy_hbaseutil import create_hbase_table
 from ebidp.utils.phoenixdb_util import (
-    insert_metadata, insert_phoenix, create_phoenix_table
+    insert_metadata, insert_phoenix, create_phoenix_table,
+    generate_phoenix_table
 )
 from ebidp.utils.hdf5_util import read_h5_phoenix_data_list, read_h5_columns
 from ebidp.utils.sqoop_util import sqoop_to_hbase
@@ -22,9 +23,11 @@ def mysql_to_hbase_task(table_uuid, host_, port, user, password,
 def file_to_hbase_task(file_path, table_name, table_uuid):
     #  创建phoenix表
     columns_str = read_h5_columns(file_path, table_name)
-    create_table_sql = create_phoenix_table(table_uuid, columns_str)
+    create_table_sql = generate_phoenix_table(table_uuid, columns_str)
+    create_phoenix_table(create_table_sql)
     #  记录表元数据
-    insert_metadata(table_uuid, create_table_sql, columns_str)
+    insert_metadata(table_uuid, create_table_sql, columns_str,
+                    create_table_sql, columns_str)
 
     #  读取文件封装数据 phoenix
     data_list = read_h5_phoenix_data_list(file_path, table_name)
@@ -33,7 +36,7 @@ def file_to_hbase_task(file_path, table_name, table_uuid):
 
 
 # @celery.task()
-def data_join_task(data_str, uuid_):
+def data_join_task(data_str, table_uuid):
     #  数据加工
     data_job = json.loads(data_str)
     join_by = data_job["join_by"]  # 行列连接标识
@@ -57,17 +60,17 @@ def data_join_task(data_str, uuid_):
                     join_on0 = conf0["join_on"]
                 elif same_name == "1":  # 结果表有重名，根据标识取
                     if table_clu_flag == "0":
-                        join_on0 = '{0}{1}'.format(conf0["join_on"], "_0")
+                        join_on0 = '{0}_0'.format(conf0["join_on"])
                     elif table_clu_flag == "1":
-                        join_on0 = '{0}{1}'.format(conf0["join_on"], "_1")
+                        join_on0 = '{0}_1'.format(conf0["join_on"])
 
             conf1 = join_conf[1]
             table_id1 = conf1["table_id"]
             join_on1 = conf1["join_on"]
-            if i == (len(meta) - 1):
+            if i == (len(meta) - 1):  # 代表到了最后一次join，传递最终表名
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
-                                                        join_type, str(uuid_))
+                                                        join_type, table_uuid)
                 tn_sn_list = tmp_table_and_same_name.split("^")
                 tmp_table = tn_sn_list[0]
                 same_name = tn_sn_list[1]

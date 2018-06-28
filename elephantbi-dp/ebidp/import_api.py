@@ -77,7 +77,6 @@ class DataProcessing(Resource):
             'join_by': join_by
         }
 
-        print(new_data_job)
         data_str = json.dumps(new_data_job)
         table_uuid = uuid1().hex
         # r = data_join_task.delay(data_str, str(uuid_))

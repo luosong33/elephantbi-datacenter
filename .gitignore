@@ -21,3 +21,17 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+.venv/
+.idea/
+__pycache__/
+ebidp/learn/
+ebidp/import2hbase/
+ebidp/__pycache__/
+ebidp/import2hbase/__pycache__/
+.flake8
+tests/
+migrations/
+README.md
+test.java
+tests/

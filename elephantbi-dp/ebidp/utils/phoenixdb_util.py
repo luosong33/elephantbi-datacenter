@@ -11,26 +11,30 @@ from ebidp.sql_config import (
 )
 
 
+# phoenix生成建表sql语句
+def generate_phoenix_table(table_uuid, columns_str):
+    create_table_sql = create_phoenix_prefix % table_uuid
+    columns_list = columns_str.split("^")
+    table_id = columns_list[0]
+    create_table_sql = create_phoenix_key % (create_table_sql, table_id)
+    columns_list.pop(0)
+    for clu in columns_list:
+        create_table_sql = create_phoenix_column % (create_table_sql, clu)
+    create_table_sql = create_table_sql[:-2]  # 去掉最后一个逗号
+    create_table_sql = create_phoenix_suffix % create_table_sql
+
+    return create_table_sql
+
+
 # phoenix建表
-def create_phoenix_table(table_uuid, columns_str):
+def create_phoenix_table(create_sql):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
 
     with conn.cursor() as cursor:
-        create_table_sql = create_phoenix_prefix % table_uuid
-        columns_list = columns_str.split("^")
-        table_id = columns_list[0]
-        create_table_sql = create_phoenix_key % (create_table_sql, table_id)
-        columns_list.pop(0)
-        for clu in columns_list:
-            create_table_sql = create_phoenix_column % (create_table_sql, clu)
-        create_table_sql = create_table_sql[:-2]  # 去掉最后一个逗号
-        create_table_sql = create_phoenix_suffix % create_table_sql
-
-        cursor.execute(create_table_sql)
+        cursor.execute(create_sql)
 
     conn.close()
-    return create_table_sql
 
 
 # phoenix插入数据
@@ -55,14 +59,17 @@ def insert_phoenix(table_name, columns_str, data_list):
 
 
 # phoenix记录元数据
-def insert_metadata(uuid_, create_table_sql, columns):
+def insert_metadata(table_uuid, create_table_sql, columns,
+                    original_table_sql, original_columns):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
 
     with conn.cursor() as cursor:
         now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute(insert_meta_sql, (str(uuid_), create_table_sql,
-                                         columns, now_time, now_time))
+        cursor.execute(insert_meta_sql, (table_uuid,
+                                         create_table_sql, columns,
+                                         original_table_sql, original_columns,
+                                         now_time, now_time))
 
     conn.close()
 
