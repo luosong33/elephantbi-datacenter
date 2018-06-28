@@ -21,10 +21,13 @@ def create_hbase_table(name):
                                       transport=transport,
                                       protocol=protocol)
     connection.open()
-    families = {
-        "c": dict()
-    }
-    connection.create_table(name, families)
+    try:
+        families = {
+            "c": dict()
+        }
+        connection.create_table(name, families)
+    except ValueError as e:
+        print(e)
     connection.close()
 
 
@@ -46,16 +49,19 @@ def insert_hbase(table_name, data_list):
                                       transport=transport,
                                       protocol=protocol)
     connection.open()
-    table = connection.table(str(table_name))
-    for line_dict in data_list:
-        for key, _dict in line_dict.items():
-            data_clu = {}
-            for k, v in _dict.items():
-                data_clu.setdefault('c:{0}{1}'.format(str(k), str(v)))
+    try:
+        table = connection.table(str(table_name))
+        for line_dict in data_list:
+            for key, _dict in line_dict.items():
+                data_clu = {}
+                for k, v in _dict.items():
+                    data_clu.setdefault('c:{0}{1}'.format(str(k), str(v)))
 
-            try:
-                table.put(str(key), data_clu)
-                raise ValueError("Something went wrong!")
-            except ValueError as e:
-                print(e)
+                try:
+                    table.put(str(key), data_clu)
+                    raise ValueError("Something went wrong!")
+                except ValueError as e:
+                    print(e)
+    except ValueError as e:
+        print(e)
     connection.close()

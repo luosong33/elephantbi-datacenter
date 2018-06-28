@@ -8,7 +8,6 @@ from ebidp.utils.sqoop_util import sqoop_to_hbase
 from ebidp.data_proc import data_join_clu
 
 
-# 异步任务
 # @celery.task()
 def mysql_to_hbase_task(table_uuid, host_, port, user, password,
                         db_name, table_name, key):

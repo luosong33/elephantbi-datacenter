@@ -3,29 +3,32 @@ import phoenixdb
 import phoenixdb.cursor
 import datetime
 from flask import current_app
-from ebidp.sql_config import insert_meta_sql, query_meta_sql, \
-    create_phoenix_prefix, create_phoenix_key, \
-    create_phoenix_column, create_phoenix_suffix, \
+from ebidp.sql_config import (
+    insert_meta_sql, query_meta_sql,
+    create_phoenix_prefix, create_phoenix_key,
+    create_phoenix_column, create_phoenix_suffix,
     insert_phoenix_prefix, insert_phoenix_column, insert_phoenix_suffix
+)
 
 
 # phoenix建表
 def create_phoenix_table(table_uuid, columns_str):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
-    cursor = conn.cursor()
 
-    create_table_sql = create_phoenix_prefix % table_uuid
-    columns_list = columns_str.split("^")
-    table_id = columns_list[0]
-    create_table_sql = create_phoenix_key % (create_table_sql, table_id)
-    del columns_list[0]
-    for clu in columns_list:
-        create_table_sql = create_phoenix_column % (create_table_sql, clu)
-    create_table_sql = create_table_sql[:-2]  # 去掉最后一个逗号
-    create_table_sql = create_phoenix_suffix % create_table_sql
+    with conn.cursor() as cursor:
+        create_table_sql = create_phoenix_prefix % table_uuid
+        columns_list = columns_str.split("^")
+        table_id = columns_list[0]
+        create_table_sql = create_phoenix_key % (create_table_sql, table_id)
+        columns_list.pop(0)
+        for clu in columns_list:
+            create_table_sql = create_phoenix_column % (create_table_sql, clu)
+        create_table_sql = create_table_sql[:-2]  # 去掉最后一个逗号
+        create_table_sql = create_phoenix_suffix % create_table_sql
 
-    cursor.execute(create_table_sql)
+        cursor.execute(create_table_sql)
+
     conn.close()
     return create_table_sql
 
@@ -34,19 +37,19 @@ def create_phoenix_table(table_uuid, columns_str):
 def insert_phoenix(table_name, columns_str, data_list):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
-    cursor = conn.cursor()
 
-    columns_list = columns_str.split("^")
-    insert_sql = insert_phoenix_prefix % table_name
-    for i in range(len(columns_list) - 1):
-        insert_sql = insert_phoenix_column % insert_sql
-    insert_sql = insert_phoenix_suffix % insert_sql
+    with conn.cursor() as cursor:
+        columns_list = columns_str.split("^")
+        insert_sql = insert_phoenix_prefix % table_name
+        for i in range(len(columns_list) - 1):
+            insert_sql = insert_phoenix_column % insert_sql
+        insert_sql = insert_phoenix_suffix % insert_sql
 
-    for clu in data_list:
-        try:
-            cursor.execute(insert_sql, clu)
-        except ValueError as e:
-            print(e)
+        for clu in data_list:
+            try:
+                cursor.execute(insert_sql, clu)
+            except ValueError as e:
+                print(e)
 
     conn.close()
 
@@ -55,11 +58,12 @@ def insert_phoenix(table_name, columns_str, data_list):
 def insert_metadata(uuid_, create_table_sql, columns):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
-    cursor = conn.cursor()
 
-    now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute(insert_meta_sql, (str(uuid_), create_table_sql,
-                                     columns, now_time, now_time))
+    with conn.cursor() as cursor:
+        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute(insert_meta_sql, (str(uuid_), create_table_sql,
+                                         columns, now_time, now_time))
+
     conn.close()
 
 
