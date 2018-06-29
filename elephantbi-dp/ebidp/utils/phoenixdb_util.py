@@ -88,6 +88,17 @@ def query_metadata(value):
     return fetchone
 
 
+# phoenix删除元数据
+def delete_meta_table(table_name):
+    database_url = "http://localhost:8765/"
+    conn = phoenixdb.connect(database_url, autocommit=True)
+
+    with conn.cursor(cursor_factory=phoenixdb.cursor.DictCursor) as cursor:
+        drop_sql = "delete from \"meta_table\" where \"id\" = '"+table_name+"'"
+        cursor.execute(drop_sql)
+    conn.close()
+
+
 # phoenix查询数据
 def query_dp_data(query_sql):
     database_url = current_app.config['DATABASE_URL']
@@ -98,3 +109,14 @@ def query_dp_data(query_sql):
     conn.close()
 
     return fetchall
+
+
+# phoenix删除表
+def drop_table(table_name):
+    database_url = "http://localhost:8765/"
+    conn = phoenixdb.connect(database_url, autocommit=True)
+
+    with conn.cursor(cursor_factory=phoenixdb.cursor.DictCursor) as cursor:
+        drop_sql = "drop table \""+table_name+"\""
+        cursor.execute(drop_sql)
+    conn.close()

@@ -4,7 +4,8 @@ import phoenixdb.cursor
 from flask import current_app
 from ebidp.utils.phoenixdb_util import (
     query_metadata, create_phoenix_table, insert_metadata,
-    generate_phoenix_table
+    generate_phoenix_table, drop_table,
+    delete_meta_table
 )
 from ebidp.sql_config import (
     join_query_sql, data_phoenix_prefix,
@@ -14,7 +15,7 @@ from ebidp.sql_config import (
 
 
 def data_join_clu(table0, table1, join_column0, join_column1,
-                  join_type, table_uuid, last_time):
+                  join_type, table_uuid, tmp_table, last_time):
 
     if table_uuid is None:
         tmp_uuid = uuid1().hex
@@ -53,7 +54,7 @@ def data_join_clu(table0, table1, join_column0, join_column1,
     insert_metadata(tmp_uuid, final_create_table_sql, final_columns_str,
                     original_create_table_sql, original_columns_str)
 
-    # 查询join数据并插入
+    # 查询join数据
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
     with conn.cursor() as cursor:
@@ -86,7 +87,7 @@ def data_join_clu(table0, table1, join_column0, join_column1,
                 fetchall_list.append(fetchone)
 
 
-    # 插入
+    # 将查询插入
     with conn.cursor() as cursor:
         sql = data_phoenix_prefix % tmp_uuid
         size = len(columns_str_meta.split("^"))
@@ -96,6 +97,11 @@ def data_join_clu(table0, table1, join_column0, join_column1,
         for fetchone in fetchall_list:
             fetchone.insert(0, uuid1().hex)
             cursor.execute(sql, fetchone)
+
+    # 删除临时表及临时元数据
+    if tmp_table != "":
+        drop_table(tmp_table)
+        delete_meta_table(tmp_table)
 
     conn.close()
 

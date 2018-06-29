@@ -29,9 +29,11 @@ ebidp/learn/
 ebidp/import2hbase/
 ebidp/__pycache__/
 ebidp/import2hbase/__pycache__/
-.flake8
 tests/
 migrations/
+tests/
+
 README.md
 test.java
-tests/
+.gitignore
+
