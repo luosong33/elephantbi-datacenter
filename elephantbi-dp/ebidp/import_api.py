@@ -40,11 +40,8 @@ class MysqlToHbase(Resource):
         table_name = data_job["table_name"]
         key = data_job["key"]
 
-        # r = mysql_to_hbase_task.delay(table_uuid, host_, port, user,
-        #                            password, db_name, table_name, key)
-        # status = r.status()
-        mysql_to_hbase_task(table_uuid, host_, port, user, password, db_name,
-                            table_name, key)
+        r = mysql_to_hbase_task.delay(table_uuid, host_, port, user,
+                                   password, db_name, table_name, key)
         return table_uuid
 
 
@@ -59,8 +56,7 @@ class FileToHbase(Resource):
         file_path = data_job["file_path"]
         table_name = data_job["table_name"]
 
-        # r = file_to_hbase_task.delay(file_path, table_name, table_uuid)
-        file_to_hbase_task(file_path, table_name, table_uuid)
+        r = file_to_hbase_task.delay(file_path, table_name, table_uuid)
         return str(table_uuid)
 
 
@@ -84,8 +80,7 @@ class DataProcessing(Resource):
 
         data_str = json.dumps(new_data_job)
         table_uuid = uuid1().hex
-        # r = data_join_task.delay(data_str, table_uuid)
-        data_join_task(data_str, table_uuid)
+        r = data_join_task.delay(data_str, table_uuid)
         return table_uuid
 
 

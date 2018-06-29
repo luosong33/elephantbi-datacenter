@@ -46,7 +46,7 @@ def data_join_task(data_str, table_uuid):
     join_by = data_job["join_by"]  # 行列连接标识
     if join_by == "col":
         meta = data_job["meta"]
-        tmp_table = ""  # 临时表表名
+        tmp_table_uuid = ""  # 临时表表名
         same_name = ""  # 结果表有无重名标记
         last_time = "1"  # 是否为第一次标记 1是 0不是
         for i in range(len(meta)):
@@ -55,11 +55,11 @@ def data_join_task(data_str, table_uuid):
             join_conf = m["join_conf"]
             conf0 = join_conf[0]
             join_on0 = ""
-            if tmp_table == "":
+            if tmp_table_uuid == "":
                 table_id0 = conf0["table_id"]
                 join_on0 = conf0["join_on"]
             else:
-                table_id0 = tmp_table
+                table_id0 = tmp_table_uuid
                 table_clu_flag = conf0["table_id"]
                 if same_name == "" or same_name == "0":  # 结果表无重名，直接取
                     join_on0 = conf0["join_on"]
@@ -76,17 +76,17 @@ def data_join_task(data_str, table_uuid):
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
                                                         join_type, table_uuid,
-                                                        tmp_table, last_time)
+                                                        tmp_table_uuid, last_time)
                 tn_sn_list = tmp_table_and_same_name.split("^")
-                tmp_table = tn_sn_list[0]
+                tmp_table_uuid = tn_sn_list[0]
                 same_name = tn_sn_list[1]
                 last_time = tn_sn_list[2]
             else:
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
                                                         join_type, None,
-                                                        tmp_table, last_time)
+                                                        tmp_table_uuid, last_time)
                 tn_sn_list = tmp_table_and_same_name.split("^")
-                tmp_table = tn_sn_list[0]
+                tmp_table_uuid = tn_sn_list[0]
                 same_name = tn_sn_list[1]
                 last_time = tn_sn_list[2]

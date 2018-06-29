@@ -1,17 +1,20 @@
 #!/usr/bin/python
 import happybase
-from flask import current_app
+from ebidp.configuration import get_config
+from ebidp import create_app
 
 
 def create_hbase_table(name):
-    hbase_host = current_app.config['HBASE_HOST']
-    hbase_port = current_app.config['HBASE_PORT']
-    timeout = current_app.config['TIMEOUT']
-    autoconnect = current_app.config['AUTOCONNECT']
-    table_prefix = current_app.config['TABLE_PREFIX']
-    compat = current_app.config['COMPAT']
-    transport = current_app.config['TRANSPORT']
-    protocol = current_app.config['PROTOCOL']
+    phoenix_app = create_app(get_config('develop'))
+    phoenix_app.app_context()
+    hbase_host = phoenix_app.config['HBASE_HOST']
+    hbase_port = phoenix_app.config['HBASE_PORT']
+    timeout = phoenix_app.config['TIMEOUT']
+    autoconnect = phoenix_app.config['AUTOCONNECT']
+    table_prefix = phoenix_app.config['TABLE_PREFIX']
+    compat = phoenix_app.config['COMPAT']
+    transport = phoenix_app.config['TRANSPORT']
+    protocol = phoenix_app.config['PROTOCOL']
     connection = happybase.Connection(host=hbase_host,
                                       port=hbase_port,
                                       timeout=timeout,
@@ -32,14 +35,16 @@ def create_hbase_table(name):
 
 
 def insert_hbase(table_name, data_list):
-    hbase_host = current_app.config['HBASE_HOST']
-    hbase_port = current_app.config['HBASE_PORT']
-    timeout = current_app.config['TIMEOUT']
-    autoconnect = current_app.config['AUTOCONNECT']
-    table_prefix = current_app.config['TABLE_PREFIX']
-    compat = current_app.config['COMPAT']
-    transport = current_app.config['TRANSPORT']
-    protocol = current_app.config['PROTOCOL']
+    phoenix_app = create_app(get_config('develop'))
+    phoenix_app.app_context()
+    hbase_host = phoenix_app.config['HBASE_HOST']
+    hbase_port = phoenix_app.config['HBASE_PORT']
+    timeout = phoenix_app.config['TIMEOUT']
+    autoconnect = phoenix_app.config['AUTOCONNECT']
+    table_prefix = phoenix_app.config['TABLE_PREFIX']
+    compat = phoenix_app.config['COMPAT']
+    transport = phoenix_app.config['TRANSPORT']
+    protocol = phoenix_app.config['PROTOCOL']
     connection = happybase.Connection(host=hbase_host,
                                       port=hbase_port,
                                       timeout=timeout,
