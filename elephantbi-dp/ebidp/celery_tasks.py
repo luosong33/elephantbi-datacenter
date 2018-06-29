@@ -1,4 +1,5 @@
 import json
+
 from ebidp.utils.happy_hbaseutil import create_hbase_table
 from ebidp.utils.phoenixdb_util import (
     insert_metadata, insert_phoenix, create_phoenix_table,
@@ -7,6 +8,9 @@ from ebidp.utils.phoenixdb_util import (
 from ebidp.utils.hdf5_util import read_h5_phoenix_data_list, read_h5_columns
 from ebidp.utils.sqoop_util import sqoop_to_hbase
 from ebidp.data_proc import data_join_clu
+from celery import Celery
+
+celery = Celery(__name__, broker="redis://localhost:6379/0")
 
 
 # @celery.task()
@@ -42,8 +46,9 @@ def data_join_task(data_str, table_uuid):
     join_by = data_job["join_by"]  # 行列连接标识
     if join_by == "col":
         meta = data_job["meta"]
-        tmp_table = ""
-        same_name = ""
+        tmp_table = ""  # 临时表标记
+        same_name = ""  # 结果表有无重名标记
+        last_time = "1"  # 是否为第一次标记 1是 0不是
         for i in range(len(meta)):
             m = meta[i]
             join_type = m["join_type"]
@@ -70,14 +75,18 @@ def data_join_task(data_str, table_uuid):
             if i == (len(meta) - 1):  # 代表到了最后一次join，传递最终表名
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
-                                                        join_type, table_uuid)
+                                                        join_type, table_uuid,
+                                                        last_time)
                 tn_sn_list = tmp_table_and_same_name.split("^")
                 tmp_table = tn_sn_list[0]
                 same_name = tn_sn_list[1]
+                last_time = tn_sn_list[2]
             else:
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
-                                                        join_type, None)
+                                                        join_type, None,
+                                                        last_time)
                 tn_sn_list = tmp_table_and_same_name.split("^")
                 tmp_table = tn_sn_list[0]
                 same_name = tn_sn_list[1]
+                last_time = tn_sn_list[2]

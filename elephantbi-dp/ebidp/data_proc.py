@@ -8,12 +8,13 @@ from ebidp.utils.phoenixdb_util import (
 )
 from ebidp.sql_config import (
     join_query_sql, data_phoenix_prefix,
-    data_phoenix_column, data_phoenix_suffix
+    data_phoenix_column, data_phoenix_suffix,
+    join_query_prefix, join_query_suffix
 )
 
 
 def data_join_clu(table0, table1, join_column0, join_column1,
-                  join_type, table_uuid):
+                  join_type, table_uuid, last_time):
 
     if table_uuid is None:
         tmp_uuid = uuid1().hex
@@ -21,9 +22,9 @@ def data_join_clu(table0, table1, join_column0, join_column1,
         tmp_uuid = table_uuid
 
     # 封装join后表结构并建表
-    table0_metadata = query_metadata("meta_table", "id", table0)
+    table0_metadata = query_metadata(table0)
     table0_columns = table0_metadata[4]
-    table1_metadata = query_metadata("meta_table", "id", table1)
+    table1_metadata = query_metadata(table1)
     table1_columns = table1_metadata[4]
     original_columns_str = '{0}^{1}'.format(table0_columns, table1_columns)
     # 处理重名字段
@@ -65,10 +66,25 @@ def data_join_clu(table0, table1, join_column0, join_column1,
             join_str = "inner join"
         elif join_type == "full":
             join_str = "full join"
+        original_columns_list = original_columns_str.split("^")
+        # query_sql = "select "
+        # for clu in original_columns_list:
+        #     query_sql += "\""+clu+"\", "
+        # query_sql = query_sql[:-2]  # 去掉最后一个逗号
+        # query_sql = join_query_suffix % (query_sql, table0, join_str, table1,
+        #                                  join_column0, join_column1)
         query_sql = join_query_sql % (table0, join_str, table1,
                                       join_column0, join_column1)
         cursor.execute(query_sql)
         fetchall = cursor.fetchall()
+        if last_time == "1":
+            fetchall_list = fetchall
+        else:
+            fetchall_list = []
+            for fetchone in fetchall:
+                fetchone.pop(0)
+                fetchall_list.append(fetchone)
+
 
     # 插入
     with conn.cursor() as cursor:
@@ -77,10 +93,10 @@ def data_join_clu(table0, table1, join_column0, join_column1,
         for i in range(size - 1):
             sql = data_phoenix_column % sql
         sql = data_phoenix_suffix % sql
-        for fetchone in fetchall:
+        for fetchone in fetchall_list:
             fetchone.insert(0, uuid1().hex)
             cursor.execute(sql, fetchone)
 
     conn.close()
 
-    return '{0}^{1}'.format(tmp_uuid, same_name_flag)
+    return '{0}^{1}^0'.format(tmp_uuid, same_name_flag)

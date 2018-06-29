@@ -75,12 +75,12 @@ def insert_metadata(table_uuid, create_table_sql, columns,
 
 
 # phoenix查询元数据
-def query_metadata(table_name, column, value):
+def query_metadata(value):
     database_url = current_app.config['DATABASE_URL']
     conn = phoenixdb.connect(database_url, autocommit=True)
 
     with conn.cursor() as cursor:
-        query_sql = query_meta_sql % (table_name, column, value)
+        query_sql = query_meta_sql % value
         cursor.execute(query_sql)
         fetchone = cursor.fetchone()
     conn.close()

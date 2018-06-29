@@ -5,9 +5,10 @@ from uuid import uuid1
 import json
 from ast import literal_eval
 
-from ebidp.asyn_tasks import (
+from ebidp.celery_tasks import (
     mysql_to_hbase_task, file_to_hbase_task, data_join_task
 )
+from ebidp.utils.phoenixdb_util import query_metadata
 
 bp = Blueprint('simple_page', __name__)
 api = Api(bp)
@@ -18,6 +19,7 @@ class Test(Resource):
         return "OK"
 
 
+# mysql导入phoenix
 mysql_to_hbase_parser_post = reqparse.RequestParser()
 mysql_to_hbase_parser_post.add_argument('host', type=str, required=True)
 mysql_to_hbase_parser_post.add_argument('port', type=str, required=True)
@@ -38,13 +40,15 @@ class MysqlToHbase(Resource):
         table_name = data_job["table_name"]
         key = data_job["key"]
 
-        # r = mysql2hbase_task.delay(str(uuid_), host_, port, user,
-        #                            pass_, db_name, table_name, key)
+        # r = mysql_to_hbase_task.delay(table_uuid, host_, port, user,
+        #                            password, db_name, table_name, key)
+        # status = r.status()
         mysql_to_hbase_task(table_uuid, host_, port, user, password, db_name,
                             table_name, key)
         return table_uuid
 
 
+# h5 file导入phoenix
 file_to_hbase_parser_post = reqparse.RequestParser()
 file_to_hbase_parser_post.add_argument('file_path', type=str, required=True)
 file_to_hbase_parser_post.add_argument('table_name', type=str, required=True)
@@ -55,11 +59,12 @@ class FileToHbase(Resource):
         file_path = data_job["file_path"]
         table_name = data_job["table_name"]
 
-        # r = file2hbase_task.delay(str(filePath), str(table_name), str(uuid_))
-        file_to_hbase_task(str(file_path), str(table_name), table_uuid)
+        # r = file_to_hbase_task.delay(file_path, table_name, table_uuid)
+        file_to_hbase_task(file_path, table_name, table_uuid)
         return str(table_uuid)
 
 
+# 数据加工
 data_processing_parser_post = reqparse.RequestParser()
 data_processing_parser_post.add_argument('join_by', type=str,
                                          required=True, location='json')
@@ -79,12 +84,35 @@ class DataProcessing(Resource):
 
         data_str = json.dumps(new_data_job)
         table_uuid = uuid1().hex
-        # r = data_join_task.delay(data_str, str(uuid_))
+        # r = data_join_task.delay(data_str, table_uuid)
         data_join_task(data_str, table_uuid)
         return table_uuid
+
+
+# 元数据查询
+meta_query_parser_post = reqparse.RequestParser()
+meta_query_parser_post.add_argument('id', type=str,
+                                    required=True, location='json')
+class MetaQuery(Resource):
+    def post(self):
+        data_job = meta_query_parser_post.parse_args()
+        id_value = data_job['id']
+        query_metadata(id_value)
+
+
+# 状态查询
+task_status_query_parser_post = reqparse.RequestParser()
+task_status_query_parser_post.add_argument('id', type=str,
+                                           required=True, location='json')
+class TaskStatusQuery(Resource):
+    def post(self):
+        data_job = task_status_query_parser_post.parse_args()
+        task_id = data_job['taskid']
+        query_metadata(task_id)
 
 
 api.add_resource(Test, '/test')
 api.add_resource(MysqlToHbase, '/mysql2hbase')
 api.add_resource(FileToHbase, '/file2hbase')
 api.add_resource(DataProcessing, '/data_processing')
+api.add_resource(MetaQuery, '/meta_query')
