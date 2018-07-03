@@ -52,9 +52,27 @@ file_to_hbase_parser_post.add_argument('table_name', type=str, required=True)
 class FileToHbase(Resource):
     def post(self):
         data_job = file_to_hbase_parser_post.parse_args()
-        table_uuid = uuid1().hex
         file_path = data_job["file_path"]
         table_name = data_job["table_name"]
+        table_uuid = uuid1().hex
+
+        r = file_to_hbase_task.delay(file_path, table_name, table_uuid)
+        return str(table_uuid)
+
+
+# h5 增量file导入phoenix
+file_inc_to_hbase_parser_post = reqparse.RequestParser()
+file_inc_to_hbase_parser_post.add_argument('file_path', type=str, required=True)
+file_inc_to_hbase_parser_post.add_argument('table_name', type=str,
+                                           required=True)
+file_inc_to_hbase_parser_post.add_argument('table_uuid', type=str,
+                                           required=True)
+class FileAddToHbase(Resource):
+    def post(self):
+        data_job = file_inc_to_hbase_parser_post.parse_args()
+        file_path = data_job["file_path"]
+        table_name = data_job["table_name"]
+        table_uuid = data_job["table_uuid"]
 
         r = file_to_hbase_task.delay(file_path, table_name, table_uuid)
         return str(table_uuid)
@@ -92,7 +110,8 @@ class MetaQuery(Resource):
     def post(self):
         data_job = meta_query_parser_post.parse_args()
         id_value = data_job['id']
-        query_metadata(id_value)
+        metadata = query_metadata(id_value)
+        return metadata
 
 
 # 状态查询
@@ -107,7 +126,8 @@ class TaskStatusQuery(Resource):
 
 
 api.add_resource(Test, '/test')
-api.add_resource(MysqlToHbase, '/mysql2hbase')
-api.add_resource(FileToHbase, '/file2hbase')
-api.add_resource(DataProcessing, '/data_processing')
+api.add_resource(MysqlToHbase, '/mysql_to_hbase')
+api.add_resource(FileToHbase, '/file_to_hbase')
+api.add_resource(FileAddToHbase, '/file_add_to_hbase')
+api.add_resource(DataProcessing, '/data_to_processing')
 api.add_resource(MetaQuery, '/meta_query')

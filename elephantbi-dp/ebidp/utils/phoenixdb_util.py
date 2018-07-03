@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from uuid import uuid1
 import phoenixdb
 import phoenixdb.cursor
 import datetime
@@ -53,6 +54,8 @@ def insert_phoenix(table_name, columns_str, data_list):
 
         for clu in data_list:
             try:
+                clu = list(clu)
+                clu.insert(0, uuid1().hex)
                 cursor.execute(insert_sql, clu)
             except ValueError as e:
                 print(e)

@@ -3,7 +3,7 @@ import json
 from ebidp.utils.happy_hbaseutil import create_hbase_table
 from ebidp.utils.phoenixdb_util import (
     insert_metadata, insert_phoenix, create_phoenix_table,
-    generate_phoenix_table
+    generate_phoenix_table, query_metadata
 )
 from ebidp.utils.hdf5_util import read_h5_phoenix_data_list, read_h5_columns
 from ebidp.utils.sqoop_util import sqoop_to_hbase
@@ -25,30 +25,37 @@ def mysql_to_hbase_task(table_uuid, host_, port, user, password,
 
 @celery.task()
 def file_to_hbase_task(file_path, table_name, table_uuid):
-    #  创建phoenix表
-    columns_str = read_h5_columns(file_path, table_name)
-    create_table_sql = generate_phoenix_table(table_uuid, columns_str)
-    create_phoenix_table(create_table_sql)
-    #  记录表元数据
-    insert_metadata(table_uuid, create_table_sql, columns_str,
-                    create_table_sql, columns_str)
+    # 判断是否为全量或增量
+    metadata = query_metadata(table_uuid)
+    if metadata is None:
+        # 创建phoenix表
+        original_columns_str = read_h5_columns(file_path, table_name)
+        columns_str = 'ROW^{0}'.format(original_columns_str)
+        create_table_sql = generate_phoenix_table(table_uuid, columns_str)
+        original_table_sql = generate_phoenix_table(table_uuid,
+                                                    original_columns_str)
+        create_phoenix_table(create_table_sql)
+        # 记录表元数据
+        insert_metadata(table_uuid, create_table_sql, columns_str,
+                        original_table_sql, original_columns_str)
+    else:
+        columns_str = metadata[2]
 
-    #  读取文件封装数据 phoenix
+    # 读取文件封装数据 phoenix
     data_list = read_h5_phoenix_data_list(file_path, table_name)
-    #  数据导入phoenix
+    # 数据导入phoenix
     insert_phoenix(table_uuid, columns_str, data_list)
 
 
 @celery.task()
 def data_join_task(data_str, table_uuid):
-    #  数据加工
+    # 数据加工
     data_job = json.loads(data_str)
     join_by = data_job["join_by"]  # 行列连接标识
     if join_by == "col":
         meta = data_job["meta"]
         tmp_table_uuid = ""  # 临时表表名
         same_name = ""  # 结果表有无重名标记
-        last_time = "1"  # 是否为第一次标记 1是 0不是
         for i in range(len(meta)):
             m = meta[i]
             join_type = m["join_type"]
@@ -64,6 +71,7 @@ def data_join_task(data_str, table_uuid):
                 if same_name == "" or same_name == "0":  # 结果表无重名，直接取
                     join_on0 = conf0["join_on"]
                 elif same_name == "1":  # 结果表有重名，根据标识取
+                    # join字段只可能出现两次，用0和1既可区分
                     if table_clu_flag == "0":
                         join_on0 = '{0}_0'.format(conf0["join_on"])
                     elif table_clu_flag == "1":
@@ -76,17 +84,15 @@ def data_join_task(data_str, table_uuid):
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
                                                         join_type, table_uuid,
-                                                        tmp_table_uuid, last_time)
+                                                        tmp_table_uuid)
                 tn_sn_list = tmp_table_and_same_name.split("^")
                 tmp_table_uuid = tn_sn_list[0]
                 same_name = tn_sn_list[1]
-                last_time = tn_sn_list[2]
             else:
                 tmp_table_and_same_name = data_join_clu(table_id0, table_id1,
                                                         join_on0, join_on1,
                                                         join_type, None,
-                                                        tmp_table_uuid, last_time)
+                                                        tmp_table_uuid)
                 tn_sn_list = tmp_table_and_same_name.split("^")
                 tmp_table_uuid = tn_sn_list[0]
                 same_name = tn_sn_list[1]
-                last_time = tn_sn_list[2]
