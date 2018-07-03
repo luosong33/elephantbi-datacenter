@@ -26,14 +26,10 @@ class ProductionConfig(GeneralConfig):
     DEBUG = False
 
 
-class TestConfig(GeneralConfig):
-    TESTING = True
-
-
 def get_config(env='develop'):
     configs = {
         'develop': DevelopConfig,
         'production': ProductionConfig,
-        'test': TestConfig
     }
+    
     return configs[env]

@@ -1,21 +1,18 @@
-#!/usr/bin/python
 from uuid import uuid1
+
 import phoenixdb.cursor
+
+from ebidp import create_app
+from ebidp.configuration import get_config
+from ebidp.sql_config import join_query_sql
 from ebidp.utils.phoenixdb_util import (
     query_metadata, create_phoenix_table, insert_metadata,
-    generate_phoenix_table, drop_table,
-    delete_meta_table
+    generate_phoenix_table, drop_table, delete_meta_table
 )
-from ebidp.sql_config import (
-    join_query_sql
-)
-from ebidp.configuration import get_config
-from ebidp import create_app
 
 
 def data_join_clu(table0, table1, join_column0, join_column1,
                   join_type, final_table_uuid, tmp_table):
-
     # 判断是否为临时表或最终表
     if final_table_uuid is None:
         tmp_table_uuid = uuid1().hex
