@@ -1,0 +1,14 @@
+Flask==0.12.2
+celery==4.2.0
+phoenixdb==0.7
+happybase==1.1.0
+Flask-RESTful==0.3.6
+pandas==0.23.0
+tables==3.4.4
+redis==2.10.6
+uWSGI==2.0.17
+pexpect==4.6.0
+pymysql==0.8.0
+plumbum==1.6.6
+flake8==3.5.0
+zerorpc==0.6.1
