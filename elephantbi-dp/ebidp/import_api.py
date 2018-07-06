@@ -6,7 +6,8 @@ from flask import Blueprint
 from flask_restful import Api, Resource, reqparse
 
 from ebidp.celery_tasks import (
-    mysql_to_hbase_task, file_to_hbase_task, data_join_task
+    mysql_add_to_hbase_task, file_to_hbase_task,
+    data_join_task, mysql_to_hbase_task
 )
 from ebidp.utils.phoenixdb_util import query_metadata
 
@@ -22,7 +23,7 @@ class Test(Resource):
 # mysql导入phoenix
 mysql_to_hbase_parser_post = reqparse.RequestParser()
 mysql_to_hbase_parser_post.add_argument('host', type=str, required=True)
-mysql_to_hbase_parser_post.add_argument('port', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('port', type=int, required=True)
 mysql_to_hbase_parser_post.add_argument('user', type=str, required=True)
 mysql_to_hbase_parser_post.add_argument('password', type=str, required=True)
 mysql_to_hbase_parser_post.add_argument('db_name', type=str, required=True)
@@ -42,8 +43,46 @@ class MysqlToHbase(Resource):
         table_name = data_job["table_name"]
         key = data_job["key"]
 
-        mysql_to_hbase_task.delay(table_uuid, host_, port, user,
-                                  password, db_name, table_name, key)
+        # mysql_to_hbase_task.delay(table_uuid, host_, port, user,
+        #                           password, db_name, table_name, key)
+        mysql_to_hbase_task(table_uuid, host_, port, user,
+                            password, db_name, table_name, key)
+
+        return table_uuid
+
+
+# mysql增量导入phoenix
+mysql_to_hbase_parser_post = reqparse.RequestParser()
+mysql_to_hbase_parser_post.add_argument('table_uuid', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('host', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('port', type=int, required=True)
+mysql_to_hbase_parser_post.add_argument('user', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('password', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('db_name', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('table_name', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('key', type=str, required=True)
+mysql_to_hbase_parser_post.add_argument('gmt_modified', type=str, required=True)
+
+
+class MysqlAddToHbase(Resource):
+    def post(self):
+        data_job = mysql_to_hbase_parser_post.parse_args()
+        table_uuid = data_job["table_uuid"]
+        host_ = data_job["host"]
+        port = data_job["port"]
+        user = data_job["user"]
+        password = data_job["password"]
+        db_name = data_job["db_name"]
+        table_name = data_job["table_name"]
+        key = data_job["key"]
+        gmt_modified = data_job["gmt_modified"]
+
+        # mysql_add_to_hbase_task.delay(table_uuid, host_, port, user,
+        #                           password, db_name, table_name, key,
+        #                           gmt_modified)
+        mysql_add_to_hbase_task(table_uuid, host_, port, user,
+                                password, db_name, table_name, key,
+                                gmt_modified)
 
         return table_uuid
 
@@ -129,21 +168,9 @@ class MetaQuery(Resource):
         return metadata
 
 
-# 状态查询
-task_status_query_parser_post = reqparse.RequestParser()
-task_status_query_parser_post.add_argument('id', type=str,
-                                           required=True, location='json')
-
-
-class TaskStatusQuery(Resource):
-    def post(self):
-        data_job = task_status_query_parser_post.parse_args()
-        task_id = data_job['taskid']
-        query_metadata(task_id)
-
-
 api.add_resource(Test, '/test')
 api.add_resource(MysqlToHbase, '/mysql_to_hbase')
+api.add_resource(MysqlAddToHbase, '/mysql_add_to_hbase')
 api.add_resource(FileToHbase, '/file_to_hbase')
 api.add_resource(FileAddToHbase, '/file_add_to_hbase')
 api.add_resource(DataProcessing, '/data_to_processing')

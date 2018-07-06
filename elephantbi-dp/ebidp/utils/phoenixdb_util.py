@@ -25,6 +25,21 @@ def generate_phoenix_table(table_uuid, columns_str):
     return create_table_sql
 
 
+# phoenix生成hbase映射表sql语句
+def generate_hbase_phoenix_table(table_uuid, columns_str):
+    create_table_sql = "CREATE TABLE \"" + table_uuid + "\" ( "
+    columns_list = columns_str.split("^")
+    col_id = columns_list[0]
+    create_table_sql += "\"" + col_id + "\" VARCHAR PRIMARY KEY, "
+    columns_list.pop(0)
+    for clu in columns_list:
+        create_table_sql += "\"c\".\"" + clu + "\" VARCHAR, "
+    create_table_sql = create_table_sql[:-2]  # 去掉最后一个逗号
+    create_table_sql += ")"
+
+    return create_table_sql
+
+
 # phoenix建表
 def create_phoenix_table(create_sql):
     phoenix_app = create_app(get_config('develop'))
